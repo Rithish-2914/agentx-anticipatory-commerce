@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+stress.jsonl
+runs/stress*.jsonl
+runs/*_tmp.jsonl
