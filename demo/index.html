@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentX Live Demo</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#14171c; --muted:#5d6673; --faint:#9aa3ae; --line:#e3e6ea;
+  --accent:#2f5bea; --accent-soft:#e8eefe;
+  --ok:#11845b; --ok-soft:#e3f5ec; --hold:#b26a00; --hold-soft:#fff3df; --warn:#c2410c; --warn-soft:#fdebe2;
+  --pending:#7a5af8; --pending-soft:#efebfe;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#0f1115; --panel:#171a20; --ink:#eef1f5; --muted:#a3acb8; --faint:#6b7480; --line:#2a2f37;
+  --accent:#7c9cff; --accent-soft:#1d2540;
+  --ok:#3ccf91; --ok-soft:#10291f; --hold:#f2b44c; --hold-soft:#2c220f; --warn:#ff8a5c; --warn-soft:#331a10;
+  --pending:#a993ff; --pending-soft:#231c3d; --shadow:none;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#171a20; --ink:#eef1f5; --muted:#a3acb8; --faint:#6b7480; --line:#2a2f37;
+  --accent:#7c9cff; --accent-soft:#1d2540;
+  --ok:#3ccf91; --ok-soft:#10291f; --hold:#f2b44c; --hold-soft:#2c220f; --warn:#ff8a5c; --warn-soft:#331a10;
+  --pending:#a993ff; --pending-soft:#231c3d; --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted)}
+.badge{margin-left:auto;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted);background:var(--panel)}
+.badge b{color:var(--ink)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.controls{padding:14px;display:grid;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text]{flex:1 1 420px;min-width:0;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+button,select{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button:disabled{opacity:.55;cursor:default}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--ink)}
+.chip small{color:var(--muted);margin-left:4px}
+.chip:hover{border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;margin-top:14px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.section{padding:16px}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin:0 0 8px}
+.transcript{font-size:26px;line-height:1.5;min-height:120px;font-weight:500;word-wrap:break-word}
+.transcript .w{display:inline-block;margin-right:.28em;padding:0 2px;border-radius:4px;transition:background .25s,color .25s}
+.transcript .w.future{display:none}
+.transcript .w.now{background:var(--accent-soft)}
+.transcript .w.commitword{background:var(--ok-soft);color:var(--ok);outline:2px solid var(--ok)}
+.transcript .w.saved{color:var(--ok);text-decoration:underline dotted;text-underline-offset:5px}
+.transcript .caret{display:inline-block;width:2px;height:1em;background:var(--accent);vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.decision{display:flex;gap:10px;align-items:center;margin-top:14px;min-height:34px}
+.pill{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.pill.wait{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.pill.hold{background:var(--hold-soft);color:var(--hold)}
+.pill.commit,.pill.committed{background:var(--ok-soft);color:var(--ok)}
+.decision .why{color:var(--ink)}
+.filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:14px}
+@media (max-width:640px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.f{border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:76px;background:var(--panel);transition:border-color .25s,background .25s}
+.f .k{font-size:12px;color:var(--muted)}
+.f .v{font-size:18px;font-weight:650;margin-top:2px;min-height:26px}
+.f .was{font-size:12px;color:var(--warn);min-height:16px}
+.f .was s{color:var(--muted)}
+.f.empty .v{color:var(--faint)}
+.f.pending{border-style:dashed;border-color:var(--pending);background:var(--pending-soft)}
+.f.pending .v::after{content:" …";color:var(--pending)}
+.f.set{border-color:var(--accent)}
+.f.changed{border-color:var(--warn);background:var(--warn-soft)}
+.count{font-size:52px;font-weight:750;line-height:1;letter-spacing:-.02em}
+.count small{font-size:15px;font-weight:500;color:var(--muted);margin-left:6px;letter-spacing:0}
+.stats{display:flex;gap:16px;margin-top:8px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.stats b{color:var(--ink)}
+.cands{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:6px}
+.cands li{display:flex;justify-content:space-between;gap:8px;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.cands li .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cands li .p{color:var(--muted);white-space:nowrap}
+.cands li.only{border-color:var(--ok);background:var(--ok-soft)}
+.more{font-size:12px;color:var(--muted);margin-top:6px}
+.commit{margin-top:14px;border-radius:12px;padding:16px;border:2px solid var(--ok);background:var(--ok-soft);display:none}
+.commit.show{display:block;animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+.commit .h{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok)}
+.commit .title{font-size:18px;font-weight:700;margin:4px 0}
+.commit .meta{color:var(--muted);font-size:13px}
+.commit .early{font-size:15px;margin-top:8px}
+.commit .early b{color:var(--ok)}
+.timeline{display:flex;gap:3px;margin-top:16px;flex-wrap:wrap}
+.tick{height:10px;flex:1 1 14px;min-width:10px;border-radius:3px;background:var(--line)}
+.tick.wait{background:var(--faint);opacity:.45}
+.tick.hold{background:var(--hold)}
+.tick.commit{background:var(--ok)}
+.tick.committed{background:var(--ok);opacity:.45}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.verdict{margin-top:14px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);display:none}
+.verdict.show{display:block}
+.verdict.good{border-color:var(--ok)}
+.verdict.bad{border-color:var(--warn);background:var(--warn-soft)}
+.err{color:var(--warn);font-size:13px}
+.tag-correction small{color:var(--warn)}
+.tag-late small{color:var(--hold)}
+.tag-code small{color:var(--pending)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AgentX</h1>
+    <span class="sub">finds the product before the shopper finishes, and never commits to a wrong one</span>
+    <span class="badge">search backend: <b id="backend">…</b></span>
+  </header>
+
+  <div class="panel controls">
+    <div class="row">
+      <input id="text" type="text" placeholder="Type a shopping request, e.g. black Pacevo running shoes size nine under four thousand please" autocomplete="off">
+      <select id="speed" aria-label="Speed">
+        <option value="900">Slow</option>
+        <option value="550" selected>Normal</option>
+        <option value="250">Fast</option>
+      </select>
+      <button id="play" class="primary">Play ▶</button>
+      <button id="theme" title="Toggle light/dark">◐</button>
+    </div>
+    <div class="chips" id="examples"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel section">
+      <p class="label">Shopper is saying</p>
+      <div class="transcript" id="transcript"><span class="sub" style="font-size:16px">Pick an example or type a request, then press Play.</span></div>
+      <div class="decision"><span class="pill wait" id="pill">idle</span><span class="why" id="why"></span></div>
+
+      <div class="filters" id="filters"></div>
+
+      <div class="timeline" id="timeline"></div>
+      <div class="legend">
+        <span><i style="background:var(--faint);opacity:.45"></i>waiting for detail</span>
+        <span><i style="background:var(--hold)"></i>one match, holding (a correction may follow)</span>
+        <span><i style="background:var(--ok)"></i>committed</span>
+      </div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+    <div class="panel section">
+      <p class="label">Products that still fit</p>
+      <div class="count" id="count">—<small id="countsub">of the catalogue</small></div>
+      <div class="stats"><span>searches <b id="searches">0</b></span><span>word <b id="wordn">0</b>/<b id="wordt">0</b></span><span>latency <b id="lat">–</b></span></div>
+      <ul class="cands" id="cands"></ul>
+      <div class="more" id="more"></div>
+      <div class="commit" id="commit">
+        <div class="h">Shown to the shopper</div>
+        <div class="title" id="ctitle"></div>
+        <div class="meta" id="cmeta"></div>
+        <div class="early" id="cearly"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FIELDS=[["category","Category"],["colour","Colour"],["size","Size"],["brand","Brand"],["max_price","Budget"]];
+const $=id=>document.getElementById(id);
+let timer=null, target=null, catSize=1074;
+
+function fmt(k,v){ if(v==null) return "—"; return k==="max_price" ? "≤ ₹"+Number(v).toLocaleString("en-IN") : String(v); }
+function rupees(v){ return "₹"+Number(v).toLocaleString("en-IN"); }
+
+function drawFilters(cur, prev, pending, was){
+  $("filters").innerHTML = FIELDS.map(([k,label])=>{
+    const v=cur?cur[k]:null, p=pending.includes(k);
+    const changed = was[k]!=null;
+    const cls = p?"pending": changed?"changed": v!=null?"set":"empty";
+    const note = changed ? `was <s>${fmt(k,was[k])}</s>` : "";
+    return `<div class="f ${cls}"><div class="k">${label}</div><div class="v">${fmt(k,v)}</div><div class="was">${note}</div></div>`;
+  }).join("");
+}
+
+function loadExamples(){
+  fetch("/api/examples").then(r=>r.json()).then(list=>{
+    $("examples").innerHTML = list.map((e,i)=>{
+      const cls = e.tag.startsWith("correction")?"tag-correction":e.tag.startsWith("late")?"tag-late":e.tag.startsWith("code")?"tag-code":"";
+      const short = e.text.length>46 ? e.text.slice(0,44)+"…" : e.text;
+      return `<button class="chip ${cls}" data-i="${i}" title="${e.text.replace(/"/g,'&quot;')}">${short}<small>${e.tag}</small></button>`;
+    }).join("");
+    document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+      const e=list[+b.dataset.i]; $("text").value=e.text; target=e.target; play();
+    });
+  }).catch(()=>{$("err").textContent="Start the server: python demo/server.py";});
+}
+
+$("text").addEventListener("input",()=>{target=null;});
+$("text").addEventListener("keydown",e=>{ if(e.key==="Enter") play(); });
+$("play").onclick=play;
+$("theme").onclick=()=>{
+  const r=document.documentElement, dark=matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur=r.dataset.theme || (dark?"dark":"light");
+  r.dataset.theme = cur==="dark" ? "light" : "dark";
+};
+
+function play(){
+  const text=$("text").value.trim(); if(!text) return;
+  clearInterval(timer); $("err").textContent=""; $("play").disabled=true;
+  fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,target})})
+    .then(r=>r.json()).then(res=>{
+      if(res.error){ $("err").textContent=res.error; $("play").disabled=false; return; }
+      animate(res);
+    }).catch(e=>{ $("err").textContent="Server not reachable: run python demo/server.py"; $("play").disabled=false; });
+}
+
+function animate(res){
+  catSize=res.catalogue_size; $("backend").textContent=res.backend==="rezolve"?"Rezolve Labs semantic search":"local search.py";
+  $("wordt").textContent=res.n; $("lat").textContent="–";
+  $("transcript").innerHTML=res.words.map((w,i)=>`<span class="w future" id="w${i}">${w.replace(/</g,"&lt;")}</span>`).join("")+'<span class="caret"></span>';
+  $("timeline").innerHTML=res.words.map((_,i)=>`<div class="tick" id="t${i}"></div>`).join("");
+  $("commit").classList.remove("show"); $("verdict").className="verdict";
+  $("cands").innerHTML=""; $("more").textContent=""; $("count").innerHTML=`${catSize.toLocaleString()}<small>in the catalogue</small>`;
+  $("pill").className="pill wait"; $("pill").textContent="listening"; $("why").textContent="";
+  drawFilters(null,null,[],{});
+  let i=0, prev=null; const was={};
+  const speed=+$("speed").value;
+  timer=setInterval(()=>{
+    if(i>=res.steps.length){ clearInterval(timer); finish(res); return; }
+    const s=res.steps[i];
+    document.querySelectorAll(".w.now").forEach(e=>e.classList.remove("now"));
+    const we=$("w"+i); we.classList.remove("future"); we.classList.add("now");
+    if(s.commit) we.classList.add("commitword");
+    $("t"+i).className="tick "+s.state;
+    $("wordn").textContent=i+1; $("searches").textContent=s.searches;
+    // corrections: a settled value that changes
+    if(prev && s.filters) for(const [k] of FIELDS){
+      if(prev[k]!=null && s.filters[k]!=null && String(prev[k])!==String(s.filters[k]) && !(s.pending||[]).includes(k)) was[k]=prev[k];
+    }
+    drawFilters(s.filters,prev,s.pending||[],was);
+    $("pill").className="pill "+s.state;
+    $("pill").textContent={wait:"waiting",hold:"holding",commit:"commit",committed:"committed"}[s.state]||s.state;
+    $("why").textContent=s.text;
+    if(s.pool_size==null){ $("count").innerHTML=`${catSize.toLocaleString()}<small>in the catalogue · no search yet</small>`; $("cands").innerHTML=""; $("more").textContent=""; }
+    else{
+      $("count").innerHTML=`${s.pool_size}<small>${s.pool_size===1?"product fits":"products fit"}</small>`;
+      $("cands").innerHTML=s.pool.map(p=>`<li class="${s.pool_size===1?"only":""}"><span class="t">${p.title}${p.size?" · "+p.size:""}</span><span class="p">${rupees(p.price)}</span></li>`).join("");
+      $("more").textContent=s.pool_size>s.pool.length?`+ ${s.pool_size-s.pool.length} more`:"";
+    }
+    if(s.commit){
+      const p=s.pool[0];
+      $("ctitle").textContent=p.title+(p.size?" · size "+p.size:"");
+      $("cmeta").textContent=`${p.product_id} · ${rupees(p.price)}`;
+      const left=res.n-(i+1);
+      $("cearly").innerHTML=`Committed at word <b>${i+1}</b> of ${res.n}: <b>${left} word${left===1?"":"s"} early</b>`;
+      $("commit").classList.add("show");
+    }
+    prev=s.filters; i++;
+  }, speed);
+}
+
+function finish(res){
+  $("play").disabled=false;
+  document.querySelectorAll(".w.now").forEach(e=>e.classList.remove("now"));
+  if(res.commit_at) for(let j=res.commit_at;j<res.n;j++) $("w"+j).classList.add("saved");
+  $("lat").textContent=(res.ms/res.n).toFixed(2)+" ms/word";
+  $("searches").textContent=res.searches;
+  const p=res.product, v=$("verdict");
+  const same = res.committed ? res.committed===res.final : null;
+  let html = `<b>Final check against the full request:</b> `;
+  if(!p) html += "no product fits this request.";
+  else{
+    html += `${p.title}${p.size?" · size "+p.size:""} (${rupees(p.price)}). `;
+    if(res.unmet && res.unmet.length)
+      html += `<br>Nothing in the catalogue meets every constraint: this is the closest match, but it misses the <b>${res.unmet.join(", ")}</b>. `;
+    else
+      html += same===true ? "Matches the early commit." : same===false ? "Differs from the early commit." : "No early commit; answered at the end.";
+  }
+  if(res.correct!==null && res.correct!==undefined) html += res.correct ? " ✓ Correct target product." : " ✗ Not the target product.";
+  html += ` <span class="sub">${res.searches} search${res.searches===1?"":"es"} · ${res.ms} ms total</span>`;
+  const bad = same===false || res.correct===false || (res.unmet && res.unmet.length);
+  v.innerHTML=html; v.className="verdict show "+(bad?"bad":"good");
+}
+
+loadExamples();
+fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"hi"})})
+  .then(r=>r.json()).then(r=>{ if(r.backend) $("backend").textContent=r.backend==="rezolve"?"Rezolve Labs semantic search":"local search.py"; }).catch(()=>{});
+</script>
+</body>
+</html>

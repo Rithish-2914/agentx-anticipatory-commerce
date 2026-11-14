@@ -92,7 +92,40 @@ class Agent:
                 not self.truncated or self._verify_unique(settled, unique)):
             self.committed = unique
             out["commit"] = unique
+        self.last_step = self._explain(r, pool, unique, stable, out.get("commit"),
+                                       tail, corrected, clause_end, suffix_risk)
         return out
+
+    def _explain(self, r, pool, unique, stable, commit, tail, corrected, clause_end, suffix_risk):
+        """Plain-language account of this word's decision (for the demo and logs)."""
+        if commit:
+            why = ("the shopper already corrected themselves and the new value is in" if corrected
+                   else "the closing phrase has started" if tail
+                   else "one product fits and no correction is signalled")
+            state, text = "commit", f"Commit: {why}"
+        elif self.committed:
+            state, text = "committed", "Already committed; later words only confirm it"
+        elif self.fetched_with is None:
+            state, text = "wait", "Waiting for the product type before searching"
+        elif r.open_correction:
+            state, text = "wait", "A correction has started; holding until the new value arrives"
+        elif r.pending - {"number"} or "number" in r.pending:
+            fields = ", ".join(sorted(p.replace("max_price", "budget") for p in r.pending))
+            state, text = "wait", f"Waiting: {fields} may still change with the next word"
+        elif not pool:
+            state, text = "wait", "Nothing fits yet"
+        elif len(pool) > 1:
+            state, text = "wait", f"{len(pool)} products still fit; need more detail"
+        elif clause_end:
+            state, text = "hold", "One match, but a comma or full stop here often comes before a correction"
+        elif suffix_risk:
+            state, text = "hold", "One match, but the next word may still qualify or correct it"
+        else:
+            state, text = "hold", "One match; holding"
+        return {"state": state, "text": text, "pool": [
+            {k: p.get(k) for k in ("product_id", "title", "brand", "colour", "size", "price")}
+            for p in pool[:6]], "pool_size": len(pool) if self.fetched_with else None,
+            "pending": sorted(r.pending), "searches": self.searches}
 
     def finish(self):
         r = self.parser.parse(self.words)

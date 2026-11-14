@@ -36,6 +36,20 @@ python evaluate.py --agent my_agent.py --data runs/stress7.jsonl
 python evaluate.py --agent tests/capped_agent.py                      # backend that caps results at 20
 ```
 
+## Live demo
+
+```bash
+python demo/server.py        # then open http://localhost:8765
+```
+
+Type any request, or pick an example: plain, correction, late constraint or Hindi–English. Watch it word by word:
+- the five filters fill in, turn pending, and get corrected (*grey, was black*);
+- the count of products that still fit drops;
+- the agent explains each wait-or-commit decision;
+- the product is shown the moment it is safe.
+
+The words the agent no longer needed are underlined in green. The demo runs the same agent code that `evaluate.py` scores. With `REZOLVE_API_KEY` and `REZOLVE_KB_ID` set, its searches go through Rezolve Labs.
+
 ## Rezolve Labs capabilities used
 
 | Capability | Used for |
@@ -73,6 +87,7 @@ Optional settings: `REZOLVE_MAX_K` (page cap, default 50) and `AGENTX_MAX_SEARCH
 | `my_agent.py` | entry point for `evaluate.py` |
 | `agentx/` | parser, agent, search backends (local and Rezolve) |
 | `tools/` | Rezolve setup, parser check, stress-set generator, adversarial examples |
+| `demo/` | live word-by-word demo (`server.py` + `index.html`) |
 | `tests/capped_agent.py` | checks behaviour when the search backend caps its results |
 | `runs/dev_results.jsonl` | per-request outputs on the dev set |
 | `catalogue.csv`, `dev.jsonl`, `search.py`, `evaluate.py` | starter kit from Rezolve AI ([docs/STARTER_KIT.md](docs/STARTER_KIT.md)) |
