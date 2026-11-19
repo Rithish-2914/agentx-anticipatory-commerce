@@ -77,7 +77,7 @@ def run(text, target=None):
         "searches": tools.searches, "ms": round(ms, 2), "catalogue_size": len(CATALOGUE),
         "target": target, "correct": (final == target) if target else None,
         "commit_correct": (agent.committed == final) if agent.committed else None,
-        "backend": agent.backend.name,
+        "backend": agent.backend.name, "threshold": agent.threshold,
     }
 
 

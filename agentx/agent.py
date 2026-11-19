@@ -6,9 +6,8 @@ Per word:
      settled filters (category, plus brand/colour if already said). Later words only narrow
      that candidate set locally; a new search runs only if a correction changes a filter the
      candidate set was fetched with.
-  3. decide: commit when the narrowed set has exactly one product AND the reading is stable
-     (nothing pending, no correction in progress) AND it has stayed the same unique product
-     for `hold` more words without any correction marker arriving.
+  3. decide: a confidence score (chance the single fitting product is the final answer)
+     decides "commit now" (>= AGENTX_COMMIT_THRESHOLD, default 0.95) or "wait for more words".
 finish(): re-read the full request, re-check the answer against every filter, and if the
 reading changed, re-search (relaxing filters only if nothing fits at all).
 """
@@ -31,15 +30,16 @@ TAIL_STARTS = {"for", "if", "as", "need", "thank", "thanks", "please", "nothing"
 
 
 class Agent:
-    def __init__(self, tools, hold=None, parser=None):
+    def __init__(self, tools, threshold=None, parser=None):
         self.tools = tools
         self.backend = make_backend(tools)
         self.parser = parser or Parser()
-        self.hold = int(os.environ.get("AGENTX_HOLD", 99)) if hold is None else hold
+        # Commit when confidence >= threshold. From the score: committing p-likely-right with
+        # share e of the request left gains 0.6*e*p and risks 1.0*(1-p), so it pays when
+        # p > 1 / (1 + 0.6*e); with e ~ 0.1 that is ~0.95.
+        self.threshold = float(os.environ.get("AGENTX_COMMIT_THRESHOLD", 0.95)) if threshold is None else threshold
+        # tunable limit on searches per request (each one beyond the first is "wasted")
         self.max_searches = int(os.environ.get("AGENTX_MAX_SEARCHES", 4))
-        self.correct_now = os.environ.get("AGENTX_AFTER_CORRECTION", "1") == "1"
-        self.flow = os.environ.get("AGENTX_FLOW", "1") == "1"
-        self.suffix_wait = os.environ.get("AGENTX_SUFFIX_WAIT", "1") == "1"
 
     # ------------------------------------------------------------ protocol
     def start(self, request_id):
@@ -75,23 +75,22 @@ class Agent:
             streak = 0
         self.unique_streak = (unique if stable else None, streak)
 
-        out = {"filters": dict(f), "confidence": self._confidence(r, pool, streak)}
-        # Late constraints can only narrow a unique match, never change it; only a correction
-        # can. So commit when (a) the shopper already corrected themselves and the new value
-        # has arrived (requests rarely correct twice), (b) the polite tail has started, or
-        # (c) the reading has held for `hold` more words.
-        # (d) the word that pinned the product down did not end a clause: a comma or full stop
-        #     right after a value is where "..., sorry, I meant ..." usually comes.
+        # ---- confidence: how likely is the one fitting product to be the final answer?
+        # A late constraint can only narrow a unique match, never change it; only a
+        # correction can. So confidence is the chance that no correction is still coming,
+        # read from where the shopper is in their sentence. Values are the commit success
+        # rates measured on dev.jsonl for each situation (tools/calibrate.py).
         tail = _clean(word) in TAIL_STARTS and streak >= 1
-        corrected = r.corrections > 0 and self.correct_now
+        corrected = r.corrections > 0
         clause_end = bool(re.search(r"[,.;!?]$", word.strip()))
-        suffix_risk = self.suffix_wait and _suffix_may_follow(self.words, r)
-        flowing = streak >= 1 and not clause_end and not suffix_risk and self.flow
-        if self.committed is None and stable and (
-                streak > self.hold or tail or corrected or flowing) and (
+        suffix_risk = _suffix_may_follow(self.words, r)
+        evidence, conf = self._confidence(r, pool, stable, corrected, tail, clause_end, suffix_risk)
+        out = {"filters": dict(f), "confidence": conf}
+        if self.committed is None and stable and conf >= self.threshold and (
                 not self.truncated or self._verify_unique(settled, unique)):
             self.committed = unique
             out["commit"] = unique
+        self.evidence = evidence
         self.last_step = self._explain(r, pool, unique, stable, out.get("commit"),
                                        tail, corrected, clause_end, suffix_risk)
         return out
@@ -102,7 +101,8 @@ class Agent:
             why = ("the shopper already corrected themselves and the new value is in" if corrected
                    else "the closing phrase has started" if tail
                    else "one product fits and no correction is signalled")
-            state, text = "commit", f"Commit: {why}"
+            conf = self.CONFIDENCE.get(self.evidence, 1.0)
+            state, text = "commit", f"Commit: {why} (confidence {conf:.2f} ≥ {self.threshold:.2f})"
         elif self.committed:
             state, text = "committed", "Already committed; later words only confirm it"
         elif self.fetched_with is None:
@@ -117,9 +117,11 @@ class Agent:
         elif len(pool) > 1:
             state, text = "wait", f"{len(pool)} products still fit; need more detail"
         elif clause_end:
-            state, text = "hold", "One match, but a comma or full stop here often comes before a correction"
+            state, text = "hold", (f"One match, but a comma or full stop here often comes before a "
+                                   f"correction: confidence {self.CONFIDENCE['clause_end']:.2f} < {self.threshold:.2f}")
         elif suffix_risk:
-            state, text = "hold", "One match, but the next word may still qualify or correct it"
+            state, text = "hold", (f"One match, but the next word may still qualify or correct it: "
+                                   f"confidence {self.CONFIDENCE['suffix_may_follow']:.2f} < {self.threshold:.2f}")
         else:
             state, text = "hold", "One match; holding"
         return {"state": state, "text": text, "pool": [
@@ -199,14 +201,26 @@ class Agent:
                 return hits[0]["product_id"]
         return self.committed
 
-    @staticmethod
-    def _confidence(r, pool, streak):
+    # How often "one product fits" was the right answer in each situation on dev.jsonl,
+    # smoothed as (right + 1) / (total + 2); tools/calibrate.py prints these.
+    CONFIDENCE = {"flowing": 0.99, "tail": 0.99, "corrected": 0.98,
+                  "suffix_may_follow": 0.92, "clause_end": 0.59}
+
+    def _confidence(self, r, pool, stable, corrected, tail, clause_end, suffix_risk):
+        """(situation, confidence that the single fitting product is the final answer)."""
         if not pool:
-            return 0.0
-        c = 1.0 / len(pool)
-        if r.pending or r.open_correction:
-            c *= 0.5
-        return round(min(1.0, c * (0.6 + 0.2 * min(streak, 2))), 3)
+            return "no_candidates", 0.0
+        if not stable:
+            # several products fit, or the reading may still change with the next word
+            c = 1.0 / len(pool)
+            if r.pending or r.open_correction:
+                c *= 0.5
+            return ("several_fit" if len(pool) > 1 else "pending"), round(min(c, 0.5), 3)
+        for name, hit in (("corrected", corrected), ("tail", tail),
+                          ("clause_end", clause_end), ("suffix_may_follow", suffix_risk)):
+            if hit:
+                return name, self.CONFIDENCE[name]
+        return "flowing", self.CONFIDENCE["flowing"]
 
 
 def _suffix_may_follow(words, r):

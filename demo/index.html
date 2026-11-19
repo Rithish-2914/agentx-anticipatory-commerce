@@ -106,12 +106,21 @@ html{color-scheme:dark}
 .caret{display:inline-block;width:3px;height:1.05em;vertical-align:-4px;border-radius:2px;background:var(--grad);animation:blink 1s steps(1) infinite}
 
 /* decision */
-.decision{display:flex;align-items:center;gap:12px;margin-top:18px;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid var(--stroke);min-height:52px}
+.decision{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid var(--stroke);min-height:52px}
 .state{font:800 11px var(--sans);letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;border-radius:999px;white-space:nowrap}
 .s-idle,.s-wait{background:rgba(154,163,184,.14);color:var(--muted)}
 .s-hold{background:rgba(251,191,36,.15);color:var(--amber)}
 .s-commit,.s-committed{background:rgba(52,211,153,.16);color:var(--green)}
-.decision .why{font-size:14.5px;color:#dfe4f1}
+.decision .why{font-size:14.5px;color:#dfe4f1;flex:1}
+.conf{display:flex;align-items:center;gap:10px;width:100%;padding-top:10px;margin-top:2px;border-top:1px solid var(--stroke)}
+.conf .cl{font:700 10.5px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cbar{position:relative;flex:1;height:10px;border-radius:99px;background:rgba(255,255,255,.08)}
+.cbar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:linear-gradient(90deg,#64748b,#94a3b8);transition:width .35s ease, background .35s}
+.cbar i.mid{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.cbar i.hi{background:linear-gradient(90deg,#10b981,#34d399);box-shadow:0 0 12px rgba(52,211,153,.6)}
+.cbar b{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;border-radius:2px;left:95%;opacity:.85}
+.conf .cv{font:700 14px var(--mono);min-width:38px;text-align:right}
+
 
 /* filters */
 .filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:16px}
@@ -200,7 +209,7 @@ footer{margin-top:26px;color:var(--faint);font-size:12px;text-align:center}
     <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 L10 6 L14 14 L16 10 L20 18"/></svg></div>
     <div class="brand"><h1>Agent<span>X</span></h1><p>Anticipatory commerce · finds the product before you finish talking</p></div>
     <div class="spacer"></div>
-    <div class="stat"><span class="dot"></span>search <b id="backend">…</b></div>
+    <div class="stat"><span class="dot"></span>commits at confidence ≥ <b id="thr">0.95</b></div>
     <div class="stat">dev accuracy <b>100%</b></div>
     <div class="stat">wrong commits <b>0</b></div>
   </div>
@@ -221,7 +230,8 @@ footer{margin-top:26px;color:var(--faint);font-size:12px;text-align:center}
       <p class="eyebrow">Shopper is saying <span class="live" id="live"><i></i>live</span></p>
       <div class="stage" id="stage"><span class="ph">Pick a scenario above or type your own request, then press Play.</span></div>
 
-      <div class="decision"><span class="state s-idle" id="state">idle</span><span class="why" id="why">The agent reads every word as it arrives.</span></div>
+      <div class="decision"><span class="state s-idle" id="state">idle</span><span class="why" id="why">The agent reads every word as it arrives.</span>
+        <div class="conf"><div class="cl">confidence</div><div class="cbar"><i id="cfill"></i><b id="cthr"></b></div><div class="cv" id="cval">0.00</div></div></div>
 
       <div class="filters" id="filters"></div>
 
@@ -264,7 +274,7 @@ footer{margin-top:26px;color:var(--faint);font-size:12px;text-align:center}
       </div></div>
     </div>
   </div>
-  <footer>Same agent code that evaluate.py scores · Rezolve AI × Techfest IIT Bombay 2026-27 · Challenge 1</footer>
+  <footer>Same agent code that evaluate.py scores · Techfest, IIT Bombay 2026-27 · AgentX Challenge 1</footer>
 </div>
 
 <script>
@@ -279,7 +289,9 @@ const ICON={
 const FIELDS=[["category","Category"],["colour","Colour"],["size","Size"],["brand","Brand"],["max_price","Budget"]];
 const SW={black:"#111",white:"#f5f5f5",navy:"#1e2a5e",blue:"#2f6fec",red:"#e0323a",green:"#2f9e57",grey:"#8a8f99",beige:"#d9c7a7",olive:"#6b7b3a",brown:"#7a4b2a",maroon:"#7a1f2b",yellow:"#f2c230",pink:"#f28fb8",gold:"#d4af37",silver:"#c7ccd4",tan:"#c49a6c"};
 const ART={"running shoes":"👟","sneakers":"👟","sandals":"🩴","t-shirts":"👕","shirts":"👔","jeans":"👖","dresses":"👗","kurtas":"🥻","hoodies":"🧥","jackets":"🧥","track pants":"👖","backpacks":"🎒","caps":"🧢","headphones":"🎧","watches":"⌚","wallets":"👛"};
-let speedMs=600, timer=null, target=null, CAT=1074, examples=[];
+let speedMs=600, timer=null, target=null, CAT=1074, examples=[], THR=0.95;
+function setConf(c){ c=c||0; $("cfill").style.width=(c*100)+"%"; $("cval").textContent=c.toFixed(2);
+  $("cfill").className = c>=THR ? "hi" : c>=0.8 ? "mid" : ""; }
 
 const inr=v=>"₹"+Number(v).toLocaleString("en-IN");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -349,14 +361,14 @@ function setState(s,text){
 
 function animate(res){
   CAT=res.catalogue_size;
-  $("backend").textContent=res.backend==="rezolve"?"Rezolve Labs":"local";
+  THR=res.threshold||0.95; $("thr").textContent=THR.toFixed(2); $("cthr").style.left=(THR*100)+"%"; setConf(0);
   $("stage").innerHTML='<span class="caret" id="caret"></span>';
   $("timeline").innerHTML=res.words.map((_,i)=>`<div class="tick" id="t${i}"></div>`).join("");
   $("reveal").classList.remove("show"); $("verdict").className="verdict";
   $("mw").textContent=`0 / ${res.n}`; $("ms").textContent="0"; $("ml").textContent="–";
   $("mic").classList.add("live"); $("live").classList.add("on");
   resetSpace(); drawFilters(null,[],{}); setState("wait","Listening…");
-  let i=0, prev=null, lastPool=null, committedAt=null; const was={};
+  let i=0, prev=null, lastPool=null, trailMin=null, committedAt=null; const was={};
   timer=setInterval(()=>{
     if(i>=res.steps.length){ clearInterval(timer); finish(res,committedAt); return; }
     const s=res.steps[i];
@@ -369,12 +381,12 @@ function animate(res){
     if(prev&&s.filters) for(const [k] of FIELDS)
       if(prev[k]!=null&&s.filters[k]!=null&&String(prev[k])!==String(s.filters[k])&&!(s.pending||[]).includes(k)) was[k]=prev[k];
     drawFilters(s.filters,s.pending||[],was);
-    setState(s.state,s.text);
+    setState(s.state,s.text); if(!committedAt || s.commit) setConf(s.confidence);
     if(s.pool_size!=null){
-      if(s.pool_size!==lastPool){
-        tween($("num"),s.pool_size); meter(s.pool_size);
+      if(s.pool_size!==lastPool){ tween($("num"),s.pool_size); meter(s.pool_size); lastPool=s.pool_size; }
+      if(trailMin===null || s.pool_size<trailMin){   // the trail only records real narrowing
         $("trail").insertAdjacentHTML("beforeend",`<span style="border:0;background:none;padding:0">→</span><span>${s.pool_size.toLocaleString("en-IN")}</span>`);
-        lastPool=s.pool_size;
+        trailMin=s.pool_size;
       }
       $("numsub").textContent=s.pool_size===1?"product fits":"products still fit";
       $("cands").innerHTML=s.pool.map(p=>`<li><span class="ic" style="background:${(SW[p.colour]||"#334")}33">${ART[s.filters.category]||"🛍️"}</span><span class="t">${esc(p.title)}${p.size?" · "+esc(p.size):""}</span><span class="p">${inr(p.price)}</span></li>`).join("");
@@ -420,7 +432,7 @@ function finish(res,committedAt){
 
 drawFilters(null,[],{}); resetSpace(); loadExamples();
 fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"hi"})})
-  .then(r=>r.json()).then(r=>{ if(r.backend) $("backend").textContent=r.backend==="rezolve"?"Rezolve Labs":"local"; }).catch(()=>{});
+  .then(r=>r.json()).then(r=>{ if(r.threshold){THR=r.threshold; $("thr").textContent=THR.toFixed(2);} $("cthr").style.left=(THR*100)+"%"; }).catch(()=>{});
 </script>
 </body>
 </html>
