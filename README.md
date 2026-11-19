@@ -39,13 +39,17 @@ python evaluate.py --agent tests/capped_agent.py                      # backend 
 
 Settings: `AGENTX_COMMIT_THRESHOLD` (default 0.95) and `AGENTX_MAX_SEARCHES` (search budget per request, default 4).
 
-## Live demo
+## Website and live demo
 
 ```bash
-python demo/server.py        # then open http://localhost:8765
+python demo/server.py        # website at http://localhost:8765, live demo at http://localhost:8765/demo
 ```
 
-Type any request, or pick an example: plain, correction, late constraint or Hindi–English. Watch it word by word:
+The **website** (`site/`) tells the story: an animated hero where 1,074 products collapse to one while a sentence is still being typed, a Baseline vs AgentX race, the calibration chart and threshold sweep, real replays of the agent, robustness by request type, and the architecture. Its replays are recorded runs of the real agent (`python tools/build_site_data.py` regenerates `site/data.js`), so `site/index.html` also opens on its own without the server. With the server running, it adds a "type your own" mode.
+
+The **live demo** (`/demo`):
+
+type any request, or pick an example: plain, correction, late constraint or Hindi–English. Watch it word by word:
 - the five filters fill in, turn pending, and get corrected (*grey, was black*);
 - the count of products that still fit drops;
 - the confidence score rises to the threshold, with the agent explaining each wait-or-commit decision;
@@ -77,7 +81,8 @@ The demo runs the same agent code that `evaluate.py` scores.
 |---|---|
 | `my_agent.py` | entry point for `evaluate.py` |
 | `agentx/` | parser, agent (retrieval and confidence), search backend |
-| `demo/` | live word-by-word demo (`server.py` + `index.html`) |
+| `site/` | project website (`index.html` + `data.js` from real agent runs) |
+| `demo/` | server for the website + live word-by-word demo (`server.py` + `index.html`) |
 | `tools/` | confidence calibration, parser check, stress-set generator, adversarial examples |
 | `tests/capped_agent.py` | checks behaviour when the search backend caps its results |
 | `runs/dev_results.jsonl` | per-request outputs on the dev set |

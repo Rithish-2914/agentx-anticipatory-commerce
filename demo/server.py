@@ -1,6 +1,6 @@
-"""Live demo: type (or pick) a shopping request and watch AgentX read it word by word.
+"""AgentX website + live demo.
 
-    python demo/server.py            # then open http://localhost:8765
+    python demo/server.py            # website at http://localhost:8765, live demo at /demo
     python demo/server.py --port 9000
 
 Standard library only. The page sends the request text; the server runs the real agent
@@ -22,6 +22,7 @@ from evaluate import Tools              # noqa: E402
 from search import load_catalogue       # noqa: E402
 
 PAGE = Path(__file__).with_name("index.html")
+SITE = ROOT / "site"
 PARSER = Parser()
 CATALOGUE = {p["product_id"]: p for p in load_catalogue()}
 
@@ -91,7 +92,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path in ("/", "/index.html"):
+        path = self.path.split("?")[0]
+        if path in ("/", "/index.html"):
+            self._send(200, (SITE / "index.html").read_bytes(), "text/html")
+        elif path == "/data.js":
+            self._send(200, (SITE / "data.js").read_bytes(), "application/javascript")
+        elif path in ("/demo", "/demo/"):
             self._send(200, PAGE.read_bytes(), "text/html")
         elif self.path == "/api/examples":
             self._send(200, examples())
@@ -118,7 +124,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     a = ap.parse_args()
-    print(f"AgentX demo on http://localhost:{a.port}")
+    print(f"AgentX website: http://localhost:{a.port}   live demo: http://localhost:{a.port}/demo")
     ThreadingHTTPServer(("127.0.0.1", a.port), Handler).serve_forever()
 
 
